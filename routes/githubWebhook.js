@@ -8,9 +8,13 @@ function verifySignature(req) {
   const signature = req.headers["x-hub-signature-256"];
   if (!signature || !req.rawBody) return false;
   const expected =
-    "sha256=" + crypto.createHmac("sha256", secret).update(req.rawBody).digest("hex");
+    "sha256=" +
+    crypto.createHmac("sha256", secret).update(req.rawBody).digest("hex");
   try {
-    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+    return crypto.timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expected),
+    );
   } catch {
     return false;
   }
@@ -50,7 +54,9 @@ module.exports = function (discord) {
 };
 
 async function handleIssueOpened(discord, repo, issue) {
-  const channel = await discord.channels.fetch(process.env.DISCORD_ISSUE_CHANNEL_ID);
+  const channel = await discord.channels.fetch(
+    process.env.DISCORD_ISSUE_CHANNEL_ID,
+  );
 
   const thread = await channel.threads.create({
     name: `#${issue.number} ${issue.title}`.slice(0, 100),
@@ -61,17 +67,26 @@ async function handleIssueOpened(discord, repo, issue) {
     },
   });
 
-  db.linkThreadToIssue(thread.id, repo, issue.number, issue.user?.login || null);
+  db.linkThreadToIssue(
+    thread.id,
+    repo,
+    issue.number,
+    issue.user?.login || null,
+  );
 }
 
 async function handleIssueClosed(discord, repo, issue) {
   const mapping = db.getThreadByIssue(repo, issue.number);
   if (!mapping) return;
 
-  const thread = await discord.channels.fetch(mapping.thread_id).catch(() => null);
+  const thread = await discord.channels
+    .fetch(mapping.thread_id)
+    .catch(() => null);
   if (!thread) return;
 
-  await thread.send(`🔴 Issue closed on GitHub by **${issue.closed_by?.login || "someone"}**.`);
+  await thread.send(
+    `🔴 Issue closed on GitHub by **${issue.closed_by?.login || "someone"}**.`,
+  );
   await thread.setArchived(true).catch(() => {});
 }
 
@@ -83,8 +98,12 @@ async function handleIssueComment(discord, repo, issue, comment) {
   const mapping = db.getThreadByIssue(repo, issue.number);
   if (!mapping) return;
 
-  const thread = await discord.channels.fetch(mapping.thread_id).catch(() => null);
+  const thread = await discord.channels
+    .fetch(mapping.thread_id)
+    .catch(() => null);
   if (!thread) return;
 
-  await thread.send(`💬 **${comment.user.login}** commented on GitHub:\n${comment.body}`);
+  await thread.send(
+    `💬 **${comment.user.login}** commented on GitHub:\n${comment.body}`,
+  );
 }

@@ -1,18 +1,27 @@
-const { SlashCommandBuilder } = require("discord.js");
+const db = require("../db");
 const github = require("../github");
 
-module.exports = {
-  data: new SlashCommandBuilder()
-    .setName("repos")
-    .setDescription("List repositories in the GitHub organization"),
+module.exports = function (discord) {
+  discord.on("messageCreate", async (message) => {
+    if (message.author.bot) return;
+    if (!message.channel.isThread()) return;
 
-  async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
-    const repos = await github.listOrgRepos();
-    if (!repos.length) {
-      return interaction.editReply("No repositories found (or the bot token can't see any).");
+    const mapping = db.getIssueByThread(message.channel.id);
+    if (!mapping) return; // not a thread we're tracking
+
+    if (!message.content?.trim()) return; // skip attachment-only / empty messages for now
+
+    const githubUsername = db.getGithubUsername(message.author.id);
+    const attribution = githubUsername ? `@${githubUsername}` : message.author.tag;
+
+    const body = `**${attribution}** commented via Discord:\n\n${message.content}`;
+
+    try {
+      // Changed github.addComment to github.createComment based on our github.js
+      await github.addComment(mapping.repo, mapping.issue_number, body);
+    } catch (err) {
+      console.error("Failed to relay Discord message to GitHub:", err);
+      await message.react("⚠️").catch(() => {});
     }
-    const list = repos.map((r) => `• ${r}`).join("\n");
-    return interaction.editReply(`**Repositories in ${github.ORG}:**\n${list}`);
-  },
+  });
 };

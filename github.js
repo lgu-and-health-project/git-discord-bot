@@ -1,13 +1,62 @@
-# Discord
-DISCORD_TOKEN=              # bot token, from the Discord Developer Portal
-DISCORD_CLIENT_ID=          # application (client) ID, used to deploy slash commands
-DISCORD_GUILD_ID=           # optional: set this for instant command deploys during dev
-DISCORD_ISSUE_CHANNEL_ID=   # channel where new-issue threads are created
+const { Octokit } = require("@octokit/rest");
 
-# GitHub
-GITHUB_TOKEN=                # PAT (classic or fine-grained) with repo scope on the org
-GITHUB_ORG=                  # e.g. "my-organization"
-GITHUB_WEBHOOK_SECRET=       # must match the secret configured on the GitHub webhook
-GITHUB_BOT_USERNAME=         # the GitHub username tied to GITHUB_TOKEN, used to avoid comment echo loops
+const ORG = process.env.GITHUB_ORG;
+const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
-PORT=3000
+module.exports = {
+  ORG,
+  
+  async listOrgRepos() {
+    const repos = await octokit.paginate(octokit.rest.repos.listForOrg, {
+      org: ORG,
+      type: "all",
+    });
+    return repos.map((r) => r.name);
+  },
+
+  async userExists(username) {
+    try {
+      await octokit.rest.users.getByUsername({ username });
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  async createIssue(repo, title, body) {
+    const res = await octokit.rest.issues.create({
+      owner: ORG,
+      repo,
+      title,
+      body,
+    });
+    return res.data;
+  },
+
+  async closeIssue(repo, issue_number) {
+    await octokit.rest.issues.update({
+      owner: ORG,
+      repo,
+      issue_number,
+      state: "closed",
+    });
+  },
+
+  async getIssue(repo, issue_number) {
+    const res = await octokit.rest.issues.get({
+      owner: ORG,
+      repo,
+      issue_number,
+    });
+    return res.data;
+  },
+
+  async addComment(repo, issue_number, body) {
+    await octokit.rest.issues.createComment({
+      owner: ORG,
+      repo,
+      issue_number,
+      body,
+    });
+  }
+};
