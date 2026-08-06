@@ -1,18 +1,29 @@
-{
-  "name": "git-bot",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "discord.js": "^14.27.0",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1"
-  }
+require("dotenv").config();
+const { REST, Routes } = require("discord.js");
+const fs = require("fs");
+const path = require("path");
+
+const commands = [];
+const commandsPath = path.join(__dirname, "commands");
+for (const file of fs.readdirSync(commandsPath).filter((f) => f.endsWith(".js"))) {
+  const command = require(path.join(commandsPath, file));
+  commands.push(command.data.toJSON());
 }
+
+const rest = new REST().setToken(process.env.DISCORD_TOKEN);
+
+(async () => {
+  try {
+    // Guild-scoped commands propagate instantly and are great for dev.
+    // Drop DISCORD_GUILD_ID once you're ready to deploy globally (can take up to 1hr).
+    const route = process.env.DISCORD_GUILD_ID
+      ? Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, process.env.DISCORD_GUILD_ID)
+      : Routes.applicationCommands(process.env.DISCORD_CLIENT_ID);
+
+    console.log(`Deploying ${commands.length} commands...`);
+    await rest.put(route, { body: commands });
+    console.log("Slash commands deployed.");
+  } catch (err) {
+    console.error(err);
+  }
+})();

@@ -1,68 +1,66 @@
-require("dotenv").config();
+const Database = require("better-sqlite3");
+const path = require("path");
 
-const express = require("express");
-const { Client, GatewayIntentBits } = require("discord.js");
+const db = new Database(path.join(__dirname, "data.sqlite"));
+db.pragma("journal_mode = WAL");
 
-const app = express();
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_links (
+    discord_id TEXT PRIMARY KEY,
+    github_username TEXT NOT NULL,
+    linked_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 
-app.use(express.json());
+  CREATE TABLE IF NOT EXISTS issue_threads (
+    thread_id TEXT PRIMARY KEY,
+    repo TEXT NOT NULL,
+    issue_number INTEGER NOT NULL,
+    created_by TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(repo, issue_number)
+  );
+`);
 
-const discord = new Client({
-  intents: [GatewayIntentBits.Guilds],
-});
+module.exports = {
+  // --- account linking -----------------------------------------------
+  linkUser(discordId, githubUsername) {
+    db.prepare(
+      `INSERT INTO user_links (discord_id, github_username) VALUES (?, ?)
+       ON CONFLICT(discord_id) DO UPDATE SET github_username = excluded.github_username`
+    ).run(discordId, githubUsername);
+  },
 
-discord.once("ready", () => {
-  console.log(`Discord bot online as ${discord.user.tag}`);
-});
+  unlinkUser(discordId) {
+    db.prepare(`DELETE FROM user_links WHERE discord_id = ?`).run(discordId);
+  },
 
-discord.login(process.env.DISCORD_TOKEN);
+  getGithubUsername(discordId) {
+    const row = db
+      .prepare(`SELECT github_username FROM user_links WHERE discord_id = ?`)
+      .get(discordId);
+    return row ? row.github_username : null;
+  },
 
-// GitHub webhook
-app.post("/github/webhook", async (req, res) => {
-  const event = req.headers["x-github-event"];
+  // --- thread <-> issue mapping ---------------------------------------
+  linkThreadToIssue(threadId, repo, issueNumber, createdBy) {
+    db.prepare(
+      `INSERT INTO issue_threads (thread_id, repo, issue_number, created_by)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(thread_id) DO UPDATE SET repo = excluded.repo, issue_number = excluded.issue_number`
+    ).run(threadId, repo, issueNumber, createdBy || null);
+  },
 
-  console.log("GitHub Event:", event);
+  getIssueByThread(threadId) {
+    return (
+      db.prepare(`SELECT * FROM issue_threads WHERE thread_id = ?`).get(threadId) || null
+    );
+  },
 
-  if (event === "issues") {
-    const action = req.body.action;
-    const issue = req.body.issue;
-
-    console.log({
-      action,
-      title: issue.title,
-      body: issue.body,
-    });
-
-    if (action === "opened") {
-      const channel = await discord.channels.fetch(
-        process.env.DISCORD_ISSUE_CHANNEL_ID,
-      );
-
-      await channel.threads.create({
-        name: `#${issue.number} ${issue.title}`,
-        message: {
-          content: `🟡 **New GitHub Issue**
-
-${issue.body || "No description"}
-
-GitHub:
-${issue.html_url}`,
-        },
-      });
-
-      console.log("Discord thread created");
-    }
-  }
-
-  res.sendStatus(200);
-});
-
-app.get("/", (req, res) => {
-  res.send("iGit bot online");
-});
-
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on ${PORT}`);
-});
+  getThreadByIssue(repo, issueNumber) {
+    return (
+      db
+        .prepare(`SELECT * FROM issue_threads WHERE repo = ? AND issue_number = ?`)
+        .get(repo, issueNumber) || null
+    );
+  },
+};
