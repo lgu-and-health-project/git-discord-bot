@@ -1,12 +1,7 @@
 require("dotenv").config();
 
 const express = require("express");
-const {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  Collection,
-} = require("discord.js");
+const { Client, GatewayIntentBits, Partials, Collection } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 
@@ -14,20 +9,11 @@ const githubWebhookRouter = require("./routes/githubWebhook");
 
 // Fail loudly and immediately if required config is missing, instead of
 // crashing later with an opaque "Application exited early".
-const REQUIRED_ENV = [
-  "DISCORD_TOKEN",
-  "GITHUB_TOKEN",
-  "GITHUB_ORG",
-  "DISCORD_ISSUE_CHANNEL_ID",
-];
+const REQUIRED_ENV = ["DISCORD_TOKEN", "GITHUB_TOKEN", "GITHUB_ORG", "DISCORD_ISSUE_CHANNEL_ID"];
 const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
 if (missing.length) {
-  console.error(
-    `Missing required environment variable(s): ${missing.join(", ")}`,
-  );
-  console.error(
-    "Set these in your host's Environment tab (Render: Settings > Environment).",
-  );
+  console.error(`Missing required environment variable(s): ${missing.join(", ")}`);
+  console.error("Set these in your host's Environment tab (Render: Settings > Environment).");
   process.exit(1);
 }
 
@@ -46,7 +32,7 @@ app.use(
     verify: (req, res, buf) => {
       req.rawBody = buf;
     },
-  }),
+  })
 );
 
 const discord = new Client({
@@ -61,9 +47,7 @@ const discord = new Client({
 discord.commands = new Collection();
 
 const commandsPath = path.join(__dirname, "commands");
-for (const file of fs
-  .readdirSync(commandsPath)
-  .filter((f) => f.endsWith(".js"))) {
+for (const file of fs.readdirSync(commandsPath).filter((f) => f.endsWith(".js"))) {
   const command = require(path.join(commandsPath, file));
   discord.commands.set(command.data.name, command);
 }
@@ -108,10 +92,7 @@ discord.on("interactionCreate", async (interaction) => {
 require("./events/messageCreate")(discord);
 
 discord.login(process.env.DISCORD_TOKEN).catch((err) => {
-  console.error(
-    "Discord login failed — check that DISCORD_TOKEN is correct:",
-    err.message,
-  );
+  console.error("Discord login failed — check that DISCORD_TOKEN is correct:", err.message);
   process.exit(1);
 });
 
