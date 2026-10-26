@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>iGit Dashboard</title>
+<style>
+  :root { --bg: #f6f7f9; --card: #fff; --text: #1d2129; --muted: #69707d; --line: #e3e6ea; --accent: #5865f2; --bad: #d93f3f; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16181c; --card: #1f2227; --text: #e6e8eb; --muted: #9aa1ab; --line: #2e3238; --accent: #7983f5; --bad: #f06a6a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 0 0 12px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px; margin-top: 18px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; }
+  .bot { flex: 1 1 240px; text-align: center; }
+  .qr { display: inline-block; padding: 8px; background: #fff; border-radius: 8px; margin: 8px 0; }
+  input, select, button { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  input[type=checkbox] { width: 18px; height: 18px; }
+  button { background: var(--accent); color: #fff; border: 0; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--bad); border: 1px solid var(--line); }
+  .table { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 720px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { font-size: 13px; color: var(--muted); font-weight: 600; }
+  td input[type=text] { width: 100%; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  label { display: block; font-size: 13px; color: var(--muted); }
+  label input, label select { display: block; width: 100%; margin-top: 4px; color: var(--text); }
+  #msg { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 6px; display: none; }
+  #login { max-width: 320px; margin: 15vh auto; }
+  #login input { width: 100%; margin: 8px 0; }
+  a { color: var(--accent); word-break: break-all; }
+</style>
+</head>
+<body>
+<main>
+  <form id="login" hidden>
+    <section>
+      <h2>iGit Dashboard</h2>
+      <input type="password" id="pw" placeholder="Password" autocomplete="current-password" aria-label="Password" required>
+      <button type="submit">Log in</button>
+    </section>
+  </form>
+
+  <div id="app" hidden>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div><h1>iGit Dashboard</h1><div class="muted">Changes save to Neon; the bot picks them up on the next event.</div></div>
+      <button class="ghost" id="logout">Log out</button>
+    </div>
+
+    <section>
+      <h2>Add the bot</h2>
+      <div class="row">
+        <div class="bot"><strong>Discord</strong><div id="qr-discord"></div><div id="link-discord" class="muted"></div></div>
+        <div class="bot"><strong>Telegram</strong><div id="qr-telegram"></div><div id="link-telegram" class="muted"></div></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Repo alerts</h2>
+      <div class="table"><table>
+        <thead><tr><th>Repo</th><th>Discord channel id</th><th>Telegram chat</th><th>Failures</th><th>Releases</th><th>Success workflows (comma-separated)</th><th></th></tr></thead>
+        <tbody id="repos"></tbody>
+      </table></div>
+      <form id="add" style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <input id="newRepo" placeholder="repo name (no org)" aria-label="New repo name" required pattern="[\w.\-]+">
+        <button>Add repo</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>Usage alerts (Brevo / AWS Rekognition)</h2>
+      <form id="usage" class="grid">
+        <label>Discord channel id<input name="channel_id" inputmode="numeric"></label>
+        <label>Telegram chat<select name="telegram_chat_id"></select></label>
+        <label>Warn below Brevo credits<input name="brevoWarnBelowCredits" type="number" min="0" required></label>
+        <label>Warn below AWS credit (USD)<input name="awsWarnCreditsBelowUsd" type="number" min="0" step="0.01" required></label>
+        <label>Check every N hours<input name="checkEveryHours" type="number" min="1" required></label>
+        <div style="align-self:end"><button>Save usage</button></div>
+      </form>
+      <p class="muted">Live numbers: run <code>/status</code> in Discord.</p>
+    </section>
+  </div>
+</main>
+<div id="msg" role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+let state;
+
+function toast(text) {
+  const m = $("#msg"); m.textContent = text; m.style.display = "block";
+  clearTimeout(toast.t); toast.t = setTimeout(() => (m.style.display = "none"), 2500);
+}
+
+async function api(method, body) {
+  const res = await fetch("/api/config", {
+    method, headers: { "content-type": "application/json" }, body: body && JSON.stringify(body),
+  });
+  if (res.status === 401) return showLogin();
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  state = data; render();
+  return data;
+}
+
+function showLogin() { $("#app").hidden = true; $("#login").hidden = false; $("#pw").focus(); }
+
+function chatOptions(selected) {
+  const opts = [new Option("— none —", "")];
+  for (const c of state.telegramChats) opts.push(new Option(c.title, c.chat_id));
+  if (selected && !state.telegramChats.some((c) => c.chat_id === selected)) opts.push(new Option(`${selected} (bot removed?)`, selected));
+  return opts.map((o) => { o.selected = o.value === (selected || ""); return o; });
+}
+
+function bot(kind, url, hint) {
+  const qr = $(`#qr-${kind}`), link = $(`#link-${kind}`);
+  qr.innerHTML = ""; link.textContent = "";
+  if (!url) { link.textContent = hint; return; }
+  const box = document.createElement("div"); box.className = "qr"; qr.append(box);
+  new QRCode(box, { text: url, width: 160, height: 160 });
+  const a = document.createElement("a"); a.href = url; a.target = "_blank"; a.rel = "noopener"; a.textContent = url; link.append(a);
+}
+
+function render() {
+  $("#login").hidden = true; $("#app").hidden = false;
+  bot("discord", state.links.discord, "Set DISCORD_CLIENT_ID on Vercel");
+  bot("telegram", state.links.telegram, "Set TELEGRAM_BOT_USERNAME on Vercel");
+
+  const body = $("#repos"); body.innerHTML = "";
+  for (const r of state.repoAlerts) {
+    const tr = document.createElement("tr");
+    const cell = (el) => { const td = document.createElement("td"); td.append(el); tr.append(td); return el; };
+    const name = document.createElement("strong"); name.textContent = r.repo; cell(name);
+    const ch = cell(Object.assign(document.createElement("input"), { type: "text", value: r.channel_id || "", inputMode: "numeric", ariaLabel: `${r.repo} Discord channel id` }));
+    const tg = cell(document.createElement("select")); tg.append(...chatOptions(r.telegram_chat_id)); tg.ariaLabel = `${r.repo} Telegram chat`;
+    const fa = cell(Object.assign(document.createElement("input"), { type: "checkbox", checked: r.failures, ariaLabel: `${r.repo} failure alerts` }));
+    const re = cell(Object.assign(document.createElement("input"), { type: "checkbox", checked: r.releases, ariaLabel: `${r.repo} release alerts` }));
+    const wf = cell(Object.assign(document.createElement("input"), { type: "text", value: r.success_workflows.join(", "), ariaLabel: `${r.repo} success workflows` }));
+    const save = () => api("POST", { action: "saveRepo", repo: r.repo, patch: {
+      channel_id: ch.value.trim() || null, telegram_chat_id: tg.value || null,
+      failures: fa.checked, releases: re.checked, success_workflows: wf.value.split(","),
+    }}).then(() => toast(`Saved ${r.repo}`), (e) => toast(e.message));
+    for (const el of [ch, wf]) el.addEventListener("change", save);
+    for (const el of [tg, fa, re]) el.addEventListener("change", save);
+    const del = cell(Object.assign(document.createElement("button"), { className: "ghost", textContent: "Remove" }));
+    del.onclick = () => confirm(`Stop alerts for ${r.repo}?`) &&
+      api("POST", { action: "deleteRepo", repo: r.repo }).then(() => toast(`Removed ${r.repo}`), (e) => toast(e.message));
+    body.append(tr);
+  }
+  if (!state.repoAlerts.length) body.innerHTML = '<tr><td colspan="7" class="muted">No repos yet — add one below.</td></tr>';
+
+  const f = $("#usage").elements, u = state.usage;
+  f.channel_id.value = u.channel_id || "";
+  f.telegram_chat_id.replaceChildren(...chatOptions(u.telegram_chat_id));
+  f.brevoWarnBelowCredits.value = u.brevoWarnBelowCredits;
+  f.awsWarnCreditsBelowUsd.value = u.awsWarnCreditsBelowUsd;
+  f.checkEveryHours.value = u.checkEveryHours;
+}
+
+$("#login").onsubmit = async (e) => {
+  e.preventDefault();
+  const res = await fetch("/api/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password: $("#pw").value }) });
+  if (!res.ok) return toast("Wrong password");
+  $("#pw").value = "";
+  api("GET").catch((err) => toast(err.message));
+};
+$("#logout").onclick = () => fetch("/api/login", { method: "DELETE" }).then(showLogin);
+$("#add").onsubmit = (e) => {
+  e.preventDefault();
+  const repo = $("#newRepo").value.trim();
+  api("POST", { action: "saveRepo", repo, patch: {} }).then(() => { $("#newRepo").value = ""; toast(`Added ${repo}`); }, (err) => toast(err.message));
+};
+$("#usage").onsubmit = (e) => {
+  e.preventDefault();
+  const f = e.target.elements;
+  api("POST", { action: "saveUsage", usage: {
+    channel_id: f.channel_id.value.trim() || null, telegram_chat_id: f.telegram_chat_id.value || null,
+    brevoWarnBelowCredits: Number(f.brevoWarnBelowCredits.value), awsWarnCreditsBelowUsd: Number(f.awsWarnCreditsBelowUsd.value),
+    checkEveryHours: Number(f.checkEveryHours.value),
+  }}).then(() => toast("Saved usage alerts"), (err) => toast(err.message));
+};
+
+api("GET").catch((err) => toast(err.message));
+</script>
+</body>
+</html>

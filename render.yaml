@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: igit-bot
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - { key: DISCORD_TOKEN, sync: false }
+      - { key: DISCORD_CLIENT_ID, sync: false }
+      - { key: DISCORD_ISSUE_CHANNEL_ID, sync: false }
+      - { key: GITHUB_TOKEN, sync: false }
+      - { key: GITHUB_ORG, value: lgu-and-health-project }
+      - { key: GITHUB_WEBHOOK_SECRET, sync: false }
+      - { key: GITHUB_BOT_USERNAME, sync: false }
+      - { key: DATABASE_URL, sync: false }
+      - { key: TELEGRAM_BOT_TOKEN, sync: false }
+      - { key: BREVO_API_KEY, sync: false }
+      - { key: AWS_ACCESS_KEY_ID, sync: false }
+      - { key: AWS_SECRET_ACCESS_KEY, sync: false }
+      - { key: AWS_REGION, value: us-east-1 }
