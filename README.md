@@ -24,7 +24,7 @@ Syncs GitHub org issues with Discord threads, two-way:
    - `GITHUB_WEBHOOK_SECRET` — set the same value on the GitHub webhook config.
 3. Register slash commands: `npm run deploy-commands`
 4. Start the bot: `npm start`
-5. In your GitHub org settings, add a webhook pointing at `https://your-host/github/webhook`, content type `application/json`, subscribed to the **Issues** and **Issue comments** events, with the secret matching `GITHUB_WEBHOOK_SECRET`.
+5. In your GitHub org settings, add a webhook pointing at `https://your-host/github/webhook`, content type `application/json`, subscribed to the **Issues**, **Issue comments**, **Workflow runs** and **Releases** events, with the secret matching `GITHUB_WEBHOOK_SECRET`.
 
 ## How the pieces fit together
 

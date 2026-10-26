@@ -1,6 +1,7 @@
 const express = require("express");
 const crypto = require("crypto");
 const db = require("../db");
+const { decideGithubAlert } = require("../alerts");
 
 function verifySignature(req) {
   const secret = process.env.GITHUB_WEBHOOK_SECRET;
@@ -44,6 +45,13 @@ module.exports = function (discord) {
         await handleIssueClosed(discord, repo, issue);
       } else if (event === "issue_comment" && action === "created") {
         await handleIssueComment(discord, repo, issue, comment);
+      } else if (event === "workflow_run" || event === "release") {
+        const route = await db.getRepoAlert(repository?.name);
+        const embed = decideGithubAlert(event, req.body, route);
+        if (embed) {
+          const channel = await discord.channels.fetch(route.channel_id);
+          await channel.send({ embeds: [embed] });
+        }
       }
     } catch (err) {
       console.error("Error handling GitHub webhook event:", err);

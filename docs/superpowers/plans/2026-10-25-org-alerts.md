@@ -137,3 +137,21 @@ Description is capped at 4000 chars: cut the notes and end with `…\n<release h
   - A member without Manage Server can't see `/alerts`.
 - [ ] **Step 3:** `npm test` still passes.
 - [ ] **Step 4: Commit** `feat: /alerts and /status commands`
+
+---
+
+> Tasks 5–6 were added on 2026-10-26 from `docs/superpowers/specs/2026-10-26-dashboard-telegram-addendum.md`.
+
+### Task 5: Telegram alerts + shared delivery
+
+**Files:** Create `telegram.js`, `notify.js`, `test/notify.test.js`. Modify `db.js` (add the `telegram_chat_id` column with `ALTER TABLE repo_alerts ADD COLUMN IF NOT EXISTS`, the `telegram_chats` table, and `upsertTelegramChat`/`removeTelegramChat`/`listTelegramChats`), `routes/githubWebhook.js` and `usage.js` (send through `notify`), `commands/alerts.js` (add an optional `telegram_chat` option to `route` and `usage`), `index.js` (start polling if `TELEGRAM_BOT_TOKEN` is set), `env.example`.
+
+- [ ] Test first: `toTelegramHtml(embed)` escapes `<>&` and outputs `<b>title</b>\n…\nurl`. `notify` with a target that has only `telegram_chat_id` doesn't touch discord. A Discord failure still sends to Telegram.
+- [ ] Implement, `npm test` green, commit `feat: Telegram alert delivery`.
+
+### Task 6: Vercel dashboard
+
+**Files:** Create `dashboard/index.html`, `dashboard/api/_lib.js` (pool + auth), `dashboard/api/login.js`, `dashboard/api/config.js` (GET everything, POST changes), `dashboard/package.json` (`pg`), `test/dashboard-auth.test.js`.
+
+- [ ] Test first: the signed cookie verifies, a tampered or missing cookie is rejected, a wrong password is rejected.
+- [ ] Implement. Add the Vercel setup steps to the README. `npm test` green. Commit `feat: Vercel config dashboard`.
