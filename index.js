@@ -117,6 +117,13 @@ require("./events/messageCreate")(discord);
     console.error("Database init failed — check DATABASE_URL:", err.message);
     process.exit(1);
   }
+  // Login can hang silently (e.g. Discord rate-limiting a shared host IP), so log the handshake.
+  discord.on("debug", (m) => { if (!/heartbeat/i.test(m)) console.log("[discord]", m); });
+  discord.rest.on("rateLimited", (info) => console.warn("[discord] REST rate limited:", JSON.stringify(info)));
+  setTimeout(() => {
+    if (!discord.isReady()) console.warn("[discord] still not connected after 60s — see [discord] lines above");
+  }, 60e3);
+  console.log("Logging in to Discord…");
   discord.login(process.env.DISCORD_TOKEN).catch((err) => {
     console.error("Discord login failed — check that DISCORD_TOKEN is correct:", err.message);
     process.exit(1);
