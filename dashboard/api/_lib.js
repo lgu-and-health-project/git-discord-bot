@@ -5,7 +5,10 @@ const SESSION_MS = 7 * 864e5;
 let pool;
 
 function db() {
-  pool ??= new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 1 });
+  if (!pool) {
+    pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 1 });
+    pool.on("error", (err) => console.error("Postgres idle client error:", err.message));
+  }
   return pool;
 }
 

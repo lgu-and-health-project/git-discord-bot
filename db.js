@@ -4,6 +4,8 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
+// Neon closes idle connections; without this listener the error would crash the process.
+pool.on('error', (err) => console.error('Postgres idle client error:', err.message));
 
 async function one(sql, params) {
   const { rows } = await pool.query(sql, params);
@@ -11,6 +13,7 @@ async function one(sql, params) {
 }
 
 module.exports = {
+  pool,
   async init() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS threads (
