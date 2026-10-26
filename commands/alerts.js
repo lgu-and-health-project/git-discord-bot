@@ -19,6 +19,9 @@ module.exports = {
         .addChannelOption((opt) =>
           opt.setName("channel").setDescription("Alert channel").setRequired(true).addChannelTypes(ChannelType.GuildText)
         )
+        .addStringOption((opt) =>
+          opt.setName("telegram_chat").setDescription("Also send to this Telegram chat (\"none\" clears)").setAutocomplete(true)
+        )
     )
     .addSubcommand((sub) =>
       sub
@@ -51,11 +54,20 @@ module.exports = {
         .addIntegerOption((opt) => opt.setName("brevo_credits").setDescription("Warn below this many Brevo credits"))
         .addNumberOption((opt) => opt.setName("aws_credit_usd").setDescription("Warn below this many USD of AWS credits"))
         .addIntegerOption((opt) => opt.setName("hours").setDescription("Check every N hours").setMinValue(1))
+        .addStringOption((opt) =>
+          opt.setName("telegram_chat").setDescription("Also send to this Telegram chat (\"none\" clears)").setAutocomplete(true)
+        )
     )
     .addSubcommand((sub) => sub.setName("list").setDescription("Show the current alert setup")),
 
   async autocomplete(interaction) {
-    const focused = interaction.options.getFocused().toLowerCase();
+    const opt = interaction.options.getFocused(true);
+    if (opt.name === "telegram_chat") {
+      const chats = await db.listTelegramChats();
+      const choices = [{ name: "none", value: "none" }, ...chats.map((c) => ({ name: c.title, value: c.chat_id }))];
+      return interaction.respond(choices.filter((c) => c.name.toLowerCase().includes(opt.value.toLowerCase())).slice(0, 25));
+    }
+    const focused = opt.value.toLowerCase();
     const repos = await github.listOrgRepos();
     const filtered = repos.filter((r) => r.toLowerCase().includes(focused)).slice(0, 25);
     await interaction.respond(filtered.map((r) => ({ name: r, value: r })));
@@ -65,10 +77,13 @@ module.exports = {
     const sub = interaction.options.getSubcommand();
     const repo = interaction.options.getString("repo");
     const reply = (content) => interaction.reply({ content, ephemeral: true });
+    // undefined = option not given (keep), null = "none" (clear)
+    const tgOpt = interaction.options.getString("telegram_chat");
+    const telegram = tgOpt === null ? {} : { telegram_chat_id: tgOpt === "none" ? null : tgOpt };
 
     if (sub === "route") {
       const channel = interaction.options.getChannel("channel");
-      await db.upsertRepoAlert(repo, { channel_id: channel.id });
+      await db.upsertRepoAlert(repo, { channel_id: channel.id, ...telegram });
       return reply(`✅ \`${repo}\` alerts now go to ${channel}.`);
     }
 
@@ -94,6 +109,7 @@ module.exports = {
         brevoWarnBelowCredits: o.getInteger("brevo_credits") ?? current.brevoWarnBelowCredits,
         awsWarnCreditsBelowUsd: o.getNumber("aws_credit_usd") ?? current.awsWarnCreditsBelowUsd,
         checkEveryHours: o.getInteger("hours") ?? current.checkEveryHours,
+        ...telegram,
       };
       await db.setSetting("usage", next);
       return reply(
@@ -107,7 +123,7 @@ module.exports = {
       const on = (b) => (b ? "on" : "off");
       const lines = rows.map(
         (r) =>
-          `\`${r.repo}\` → ${r.channel_id ? `<#${r.channel_id}>` : "no channel"} · failures ${on(r.failures)} · releases ${on(r.releases)} · workflows: ${r.success_workflows.length ? r.success_workflows.join(", ") : "none"}`
+          `\`${r.repo}\` → ${r.channel_id ? `<#${r.channel_id}>` : "no channel"}${r.telegram_chat_id ? " + Telegram" : ""} · failures ${on(r.failures)} · releases ${on(r.releases)} · workflows: ${r.success_workflows.length ? r.success_workflows.join(", ") : "none"}`
       );
       lines.push(
         usage?.channel_id

@@ -1,6 +1,7 @@
 const db = require("./db");
+const { notify } = require("./notify");
 
-const DEFAULT_USAGE = { channel_id: null, brevoWarnBelowCredits: 60, awsWarnCreditsBelowUsd: 10, checkEveryHours: 6 };
+const DEFAULT_USAGE = { channel_id: null, telegram_chat_id: null, brevoWarnBelowCredits: 60, awsWarnCreditsBelowUsd: 10, checkEveryHours: 6 };
 
 async function fetchBrevo() {
   if (!process.env.BREVO_API_KEY) throw new Error("not configured");
@@ -93,10 +94,7 @@ async function runUsageCheck(discord) {
   const { alerts, state } = checkUsage(snapshot, settings, (await db.getSetting("usage_state")) || {}, new Date());
   await db.setSetting("usage_state", state);
 
-  if (alerts.length && settings.channel_id) {
-    const channel = await discord.channels.fetch(settings.channel_id);
-    for (const text of alerts) await channel.send(text);
-  }
+  for (const text of alerts) await notify(discord, settings, text);
   return { snapshot, alerts };
 }
 

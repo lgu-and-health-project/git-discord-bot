@@ -105,6 +105,8 @@ discord.on("interactionCreate", async (interaction) => {
   }
 });
 
+if (process.env.TELEGRAM_BOT_TOKEN) require("./telegram").startPolling(require("./db"));
+
 // Relays messages posted in tracked threads back to GitHub as comments.
 require("./events/messageCreate")(discord);
 

@@ -34,6 +34,12 @@ module.exports = {
         key TEXT PRIMARY KEY,
         value JSONB
       );
+      ALTER TABLE repo_alerts ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;
+      CREATE TABLE IF NOT EXISTS telegram_chats (
+        chat_id TEXT PRIMARY KEY,
+        title TEXT,
+        added_at TIMESTAMPTZ DEFAULT now()
+      );
     `);
   },
   async linkThreadToIssue(thread_id, repo, issue_number, creator_id = null) {
@@ -69,7 +75,7 @@ module.exports = {
   async upsertRepoAlert(repo, patch) {
     await pool.query('INSERT INTO repo_alerts (repo) VALUES ($1) ON CONFLICT (repo) DO NOTHING', [repo]);
     // Column names come from this fixed list only, never from the caller's keys.
-    const cols = ['channel_id', 'failures', 'releases', 'success_workflows'].filter((c) => c in patch);
+    const cols = ['channel_id', 'telegram_chat_id', 'failures', 'releases', 'success_workflows'].filter((c) => c in patch);
     if (!cols.length) return;
     await pool.query(
       `UPDATE repo_alerts SET ${cols.map((c, i) => `${c} = $${i + 2}`).join(', ')} WHERE repo = $1`,
@@ -83,6 +89,20 @@ module.exports = {
   async getSetting(key) {
     const row = await one('SELECT value FROM settings WHERE key = $1', [key]);
     return row ? row.value : null;
+  },
+  async upsertTelegramChat(chat_id, title) {
+    await pool.query(
+      `INSERT INTO telegram_chats (chat_id, title) VALUES ($1, $2)
+       ON CONFLICT (chat_id) DO UPDATE SET title = $2`,
+      [chat_id, title]
+    );
+  },
+  async removeTelegramChat(chat_id) {
+    await pool.query('DELETE FROM telegram_chats WHERE chat_id = $1', [chat_id]);
+  },
+  async listTelegramChats() {
+    const { rows } = await pool.query('SELECT * FROM telegram_chats ORDER BY title');
+    return rows;
   },
   async setSetting(key, value) {
     await pool.query(
