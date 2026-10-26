@@ -123,21 +123,14 @@ require("./events/messageCreate")(discord);
   setTimeout(() => {
     if (!discord.isReady()) console.warn("[discord] still not connected after 60s — see [discord] lines above");
   }, 60e3);
-  // shortcut: one-off startup probe while diagnosing the Render login hang; remove once the bot connects.
-  fetch("https://discord.com/api/v10/gateway/bot", {
-    headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
-    signal: AbortSignal.timeout(15e3),
-  })
-    .then(async (r) => {
-      const h = (k) => r.headers.get(k);
-      console.log(`[probe] /gateway/bot → ${r.status} retry-after=${h("retry-after")} cf-ray=${h("cf-ray")} global=${h("x-ratelimit-global")} scope=${h("x-ratelimit-scope")}`);
-      console.log("[probe] body:", (await r.text()).slice(0, 300));
-    })
-    .catch((err) => console.error("[probe] /gateway/bot failed:", err.name, err.message, err.cause?.code || ""));
   console.log("Logging in to Discord…");
   discord.login(process.env.DISCORD_TOKEN).catch((err) => {
-    console.error("Discord login failed — check that DISCORD_TOKEN is correct:", err.message);
-    process.exit(1);
+    // No exit: the host would restart us in a loop, and each retry hits Discord's API
+    // until Cloudflare bans the shared IP. Fix the cause, then restart the service.
+    const hint = /disallowed intents/i.test(err.message)
+      ? "enable Message Content Intent (Developer Portal → Bot)"
+      : "check that DISCORD_TOKEN is correct";
+    console.error(`Discord login failed — ${hint}, then restart the service:`, err.message);
   });
 })();
 
