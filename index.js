@@ -52,7 +52,7 @@ for (const file of fs.readdirSync(commandsPath).filter((f) => f.endsWith(".js"))
   discord.commands.set(command.data.name, command);
 }
 
-discord.once("ready", () => {
+discord.once("clientReady", () => {
   console.log(`Discord bot online as ${discord.user.tag}`);
 
   // Ticks every 15 min but only checks every checkEveryHours, so a changed
