@@ -46,7 +46,7 @@ Syncs GitHub org issues with Discord threads, two-way:
 ## Hosting (Neon + Render + Vercel)
 
 1. **Neon:** create a project and copy the connection string (`postgresql://…?sslmode=require`). The bot creates its tables on first start.
-2. **Render (bot):** New → Blueprint → pick this repo (it uses `render.yaml`). Fill in the secrets, including `DATABASE_URL`. Once it's live, run `npm run deploy-commands` once from your machine with the same `.env`, and point the GitHub org webhook at `https://<render-app>.onrender.com/github/webhook`.
+2. **Render (bot):** New → Blueprint → pick this repo (it uses `render.yaml`, which deploys the **`prod`** branch; `main` is beta). Fill in the secrets, including `DATABASE_URL`. Once it's live, run `npm run deploy-commands` once from your machine with the same `.env`, and point the GitHub org webhook at `https://<render-app>.onrender.com/github/webhook`.
    - The free plan sleeps after ~15 min without HTTP traffic, which disconnects the Discord bot. Ping `https://<render-app>.onrender.com/` every 5–10 min (e.g. UptimeRobot), or use a paid instance.
 3. **Telegram (optional):** create a bot with @BotFather and set `TELEGRAM_BOT_TOKEN` on Render. Add the bot to a group, and the group then shows up in the dashboard's Telegram dropdowns.
 4. **Vercel (dashboard):** New Project → this repo → **Root Directory `dashboard`**, no framework preset. Env vars: `DATABASE_URL` (same Neon URL), `DASHBOARD_PASSWORD` (long and random; changing it logs everyone out), `DISCORD_CLIENT_ID`, `TELEGRAM_BOT_USERNAME` (without `@`). Start the bot once before opening the dashboard so the tables exist.

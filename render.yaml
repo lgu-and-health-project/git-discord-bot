@@ -3,6 +3,7 @@ services:
     name: igit-bot
     runtime: node
     plan: free
+    branch: prod   # main = beta, prod = stable; Render only follows prod
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /
