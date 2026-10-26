@@ -75,7 +75,7 @@ async function createIssue(interaction) {
   const repo = interaction.options.getString("repo");
   const title = interaction.options.getString("title");
   const body = interaction.options.getString("body") || "";
-  const githubUsername = db.getGithubUsername(interaction.user.id);
+  const githubUsername = await db.getGithubUsername(interaction.user.id);
 
   await interaction.deferReply();
 
@@ -101,7 +101,7 @@ async function createIssue(interaction) {
       name: `#${issue.number} ${issue.title}`.slice(0, 100),
       message: { content: `🟢 Issue created in \`${repo}\`: ${issue.html_url}` },
     });
-    db.linkThreadToIssue(thread.id, repo, issue.number, interaction.user.id);
+    await db.linkThreadToIssue(thread.id, repo, issue.number, interaction.user.id);
   } catch (err) {
     console.error("Thread creation failed:", err);
   }
@@ -117,7 +117,7 @@ async function closeIssue(interaction) {
 
   if (!repo || !number) {
     const mapping = interaction.channel?.isThread()
-      ? db.getIssueByThread(interaction.channel.id)
+      ? await db.getIssueByThread(interaction.channel.id)
       : null;
     if (mapping) {
       repo = repo || mapping.repo;

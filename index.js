@@ -9,7 +9,7 @@ const githubWebhookRouter = require("./routes/githubWebhook");
 
 // Fail loudly and immediately if required config is missing, instead of
 // crashing later with an opaque "Application exited early".
-const REQUIRED_ENV = ["DISCORD_TOKEN", "GITHUB_TOKEN", "GITHUB_ORG", "DISCORD_ISSUE_CHANNEL_ID"];
+const REQUIRED_ENV = ["DISCORD_TOKEN", "GITHUB_TOKEN", "GITHUB_ORG", "DISCORD_ISSUE_CHANNEL_ID", "DATABASE_URL"];
 const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
 if (missing.length) {
   console.error(`Missing required environment variable(s): ${missing.join(", ")}`);
@@ -91,10 +91,18 @@ discord.on("interactionCreate", async (interaction) => {
 // Relays messages posted in tracked threads back to GitHub as comments.
 require("./events/messageCreate")(discord);
 
-discord.login(process.env.DISCORD_TOKEN).catch((err) => {
-  console.error("Discord login failed — check that DISCORD_TOKEN is correct:", err.message);
-  process.exit(1);
-});
+(async () => {
+  try {
+    await require("./db").init();
+  } catch (err) {
+    console.error("Database init failed — check DATABASE_URL:", err.message);
+    process.exit(1);
+  }
+  discord.login(process.env.DISCORD_TOKEN).catch((err) => {
+    console.error("Discord login failed — check that DISCORD_TOKEN is correct:", err.message);
+    process.exit(1);
+  });
+})();
 
 app.use("/github/webhook", githubWebhookRouter(discord));
 

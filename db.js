@@ -1,45 +1,94 @@
-const Database = require('better-sqlite3');
-const path = require('path');
-const dbPath = path.join(__dirname, 'data.sqlite');
-const db = new Database(dbPath);
+const { Pool } = require('pg');
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS threads (
-    thread_id TEXT PRIMARY KEY,
-    repo TEXT,
-    issue_number INTEGER,
-    creator_id TEXT
-  );
-  CREATE TABLE IF NOT EXISTS users (
-    discord_id TEXT PRIMARY KEY,
-    github_username TEXT
-  );
-`);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+async function one(sql, params) {
+  const { rows } = await pool.query(sql, params);
+  return rows[0] || null;
+}
 
 module.exports = {
-  linkThreadToIssue(thread_id, repo, issue_number, creator_id = null) {
-    const stmt = db.prepare('INSERT OR REPLACE INTO threads (thread_id, repo, issue_number, creator_id) VALUES (?, ?, ?, ?)');
-    stmt.run(thread_id, repo, issue_number, creator_id);
+  async init() {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS threads (
+        thread_id TEXT PRIMARY KEY,
+        repo TEXT,
+        issue_number INTEGER,
+        creator_id TEXT
+      );
+      CREATE TABLE IF NOT EXISTS users (
+        discord_id TEXT PRIMARY KEY,
+        github_username TEXT
+      );
+      CREATE TABLE IF NOT EXISTS repo_alerts (
+        repo TEXT PRIMARY KEY,
+        channel_id TEXT,
+        failures BOOLEAN DEFAULT true,
+        releases BOOLEAN DEFAULT false,
+        success_workflows TEXT[] DEFAULT '{}'
+      );
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value JSONB
+      );
+    `);
+  },
+  async linkThreadToIssue(thread_id, repo, issue_number, creator_id = null) {
+    await pool.query(
+      `INSERT INTO threads (thread_id, repo, issue_number, creator_id) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (thread_id) DO UPDATE SET repo = $2, issue_number = $3, creator_id = $4`,
+      [thread_id, repo, issue_number, creator_id]
+    );
   },
   getThreadByIssue(repo, issue_number) {
-    const stmt = db.prepare('SELECT * FROM threads WHERE repo = ? AND issue_number = ?');
-    return stmt.get(repo, issue_number);
+    return one('SELECT * FROM threads WHERE repo = $1 AND issue_number = $2', [repo, issue_number]);
   },
   getIssueByThread(thread_id) {
-    const stmt = db.prepare('SELECT * FROM threads WHERE thread_id = ?');
-    return stmt.get(thread_id);
+    return one('SELECT * FROM threads WHERE thread_id = $1', [thread_id]);
   },
-  linkUser(discord_id, github_username) {
-    const stmt = db.prepare('INSERT OR REPLACE INTO users (discord_id, github_username) VALUES (?, ?)');
-    stmt.run(discord_id, github_username);
+  async linkUser(discord_id, github_username) {
+    await pool.query(
+      `INSERT INTO users (discord_id, github_username) VALUES ($1, $2)
+       ON CONFLICT (discord_id) DO UPDATE SET github_username = $2`,
+      [discord_id, github_username]
+    );
   },
-  unlinkUser(discord_id) {
-    const stmt = db.prepare('DELETE FROM users WHERE discord_id = ?');
-    stmt.run(discord_id);
+  async unlinkUser(discord_id) {
+    await pool.query('DELETE FROM users WHERE discord_id = $1', [discord_id]);
   },
-  getGithubUsername(discord_id) {
-    const stmt = db.prepare('SELECT github_username FROM users WHERE discord_id = ?');
-    const row = stmt.get(discord_id);
+  async getGithubUsername(discord_id) {
+    const row = await one('SELECT github_username FROM users WHERE discord_id = $1', [discord_id]);
     return row ? row.github_username : null;
-  }
+  },
+  getRepoAlert(repo) {
+    return one('SELECT * FROM repo_alerts WHERE repo = $1', [repo]);
+  },
+  async upsertRepoAlert(repo, patch) {
+    await pool.query('INSERT INTO repo_alerts (repo) VALUES ($1) ON CONFLICT (repo) DO NOTHING', [repo]);
+    // Column names come from this fixed list only, never from the caller's keys.
+    const cols = ['channel_id', 'failures', 'releases', 'success_workflows'].filter((c) => c in patch);
+    if (!cols.length) return;
+    await pool.query(
+      `UPDATE repo_alerts SET ${cols.map((c, i) => `${c} = $${i + 2}`).join(', ')} WHERE repo = $1`,
+      [repo, ...cols.map((c) => patch[c])]
+    );
+  },
+  async listRepoAlerts() {
+    const { rows } = await pool.query('SELECT * FROM repo_alerts ORDER BY repo');
+    return rows;
+  },
+  async getSetting(key) {
+    const row = await one('SELECT value FROM settings WHERE key = $1', [key]);
+    return row ? row.value : null;
+  },
+  async setSetting(key, value) {
+    await pool.query(
+      `INSERT INTO settings (key, value) VALUES ($1, $2)
+       ON CONFLICT (key) DO UPDATE SET value = $2`,
+      [key, JSON.stringify(value)]
+    );
+  },
 };

@@ -67,7 +67,7 @@ async function handleIssueOpened(discord, repo, issue) {
     },
   });
 
-  db.linkThreadToIssue(
+  await db.linkThreadToIssue(
     thread.id,
     repo,
     issue.number,
@@ -76,7 +76,7 @@ async function handleIssueOpened(discord, repo, issue) {
 }
 
 async function handleIssueClosed(discord, repo, issue) {
-  const mapping = db.getThreadByIssue(repo, issue.number);
+  const mapping = await db.getThreadByIssue(repo, issue.number);
   if (!mapping) return;
 
   const thread = await discord.channels
@@ -95,7 +95,7 @@ async function handleIssueComment(discord, repo, issue, comment) {
   // that would create an infinite Discord <-> GitHub loop.
   if (comment.user?.login === process.env.GITHUB_BOT_USERNAME) return;
 
-  const mapping = db.getThreadByIssue(repo, issue.number);
+  const mapping = await db.getThreadByIssue(repo, issue.number);
   if (!mapping) return;
 
   const thread = await discord.channels

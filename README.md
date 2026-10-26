@@ -31,7 +31,7 @@ Syncs GitHub org issues with Discord threads, two-way:
 | File | Responsibility |
 |---|---|
 | `index.js` | Boots Express + the Discord client, wires interaction handling |
-| `db.js` | SQLite: Discord↔GitHub account links, thread↔issue mapping |
+| `db.js` | Postgres (Neon): Discord↔GitHub account links, thread↔issue mapping |
 | `github.js` | All GitHub API calls (Octokit) |
 | `commands/*.js` | One file per slash command |
 | `events/messageCreate.js` | Relays thread replies to GitHub as comments |
@@ -39,6 +39,5 @@ Syncs GitHub org issues with Discord threads, two-way:
 
 ## Notes / things to harden before production
 
-- `data.sqlite` is created next to `db.js` — back it up or point it at a persistent volume.
 - The comment-relay currently skips attachment-only messages; extend `events/messageCreate.js` if you want image links included.
 - Consider rate-limiting `/issue create` per user if abuse becomes a concern.

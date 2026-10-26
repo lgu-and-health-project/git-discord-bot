@@ -20,7 +20,7 @@ module.exports = {
       return interaction.editReply(`❌ Couldn't find a GitHub user called \`${username}\`.`);
     }
 
-    db.linkUser(interaction.user.id, username);
+    await db.linkUser(interaction.user.id, username);
     return interaction.editReply(
       `✅ Linked your Discord account to GitHub user \`${username}\`. Your replies in issue threads will now show up as comments attributed to you.`
     );

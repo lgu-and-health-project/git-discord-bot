@@ -6,12 +6,12 @@ module.exports = function (discord) {
     if (message.author.bot) return;
     if (!message.channel.isThread()) return;
 
-    const mapping = db.getIssueByThread(message.channel.id);
+    const mapping = await db.getIssueByThread(message.channel.id);
     if (!mapping) return; // not a thread we're tracking
 
     if (!message.content?.trim()) return; // skip attachment-only / empty messages for now
 
-    const githubUsername = db.getGithubUsername(message.author.id);
+    const githubUsername = await db.getGithubUsername(message.author.id);
     const attribution = githubUsername ? `@${githubUsername}` : message.author.tag;
 
     const body = `**${attribution}** commented via Discord:\n\n${message.content}`;

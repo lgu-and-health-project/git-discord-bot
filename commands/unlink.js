@@ -7,7 +7,7 @@ module.exports = {
     .setDescription("Remove your linked GitHub account"),
 
   async execute(interaction) {
-    db.unlinkUser(interaction.user.id);
+    await db.unlinkUser(interaction.user.id);
     await interaction.reply({ content: "✅ Unlinked your GitHub account.", ephemeral: true });
   },
 };
