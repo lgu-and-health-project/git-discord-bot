@@ -19,7 +19,7 @@ Syncs GitHub org issues with Discord threads, two-way:
 2. Copy `.env.example` to `.env` and fill in:
    - `DISCORD_TOKEN`, `DISCORD_CLIENT_ID` — from the [Discord Developer Portal](https://discord.com/developers/applications). Enable the **Message Content** privileged intent.
    - `DISCORD_GUILD_ID` — optional, speeds up command deploys while developing.
-   - `DISCORD_ISSUE_CHANNEL_ID` — channel where new-issue threads land.
+   - `DISCORD_ISSUE_CHANNEL_ID` — default channel for new-issue threads. A repo with a channel set via `/alerts route` (or the dashboard) gets its issue threads in that channel instead.
    - `GITHUB_TOKEN` — a PAT with `repo` scope on the org.
    - `GITHUB_ORG` — your GitHub org name.
    - `GITHUB_BOT_USERNAME` — the username the PAT belongs to (prevents the comment-relay from echoing its own comments back into Discord).

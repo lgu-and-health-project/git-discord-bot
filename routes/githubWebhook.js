@@ -35,22 +35,8 @@ module.exports = function (discord) {
     // and any Discord API errors below shouldn't turn into webhook redeliveries.
     res.sendStatus(200);
 
-    const event = req.headers["x-github-event"];
-    const { action, issue, comment, repository } = req.body;
-    const repo = repository?.full_name;
-
     try {
-      if (event === "issues" && action === "opened") {
-        await handleIssueOpened(discord, repo, issue);
-      } else if (event === "issues" && action === "closed") {
-        await handleIssueClosed(discord, repo, issue);
-      } else if (event === "issue_comment" && action === "created") {
-        await handleIssueComment(discord, repo, issue, comment);
-      } else if (event === "workflow_run" || event === "release") {
-        const route = await db.getRepoAlert(repository?.name);
-        const embed = decideGithubAlert(event, req.body, route);
-        if (embed) await notify(discord, route, embed);
-      }
+      await handleEvent(discord, req.headers["x-github-event"], req.body);
     } catch (err) {
       console.error("Error handling GitHub webhook event:", err);
     }
@@ -59,9 +45,30 @@ module.exports = function (discord) {
   return router;
 };
 
+async function handleEvent(discord, event, body) {
+  const { action, issue, comment, repository } = body;
+  // Short name (no org), the same key /issue create and repo_alerts use.
+  const repo = repository?.name;
+
+  if (event === "issues" && action === "opened") {
+    await handleIssueOpened(discord, repo, issue);
+  } else if (event === "issues" && action === "closed") {
+    await handleIssueClosed(discord, repo, issue);
+  } else if (event === "issue_comment" && action === "created") {
+    await handleIssueComment(discord, repo, issue, comment);
+  } else if (event === "workflow_run" || event === "release") {
+    const route = await db.getRepoAlert(repo);
+    const embed = decideGithubAlert(event, body, route);
+    if (embed) await notify(discord, route, embed);
+  }
+}
+
+module.exports.handleEvent = handleEvent;
+
 async function handleIssueOpened(discord, repo, issue) {
+  const route = await db.getRepoAlert(repo);
   const channel = await discord.channels.fetch(
-    process.env.DISCORD_ISSUE_CHANNEL_ID,
+    route?.channel_id || process.env.DISCORD_ISSUE_CHANNEL_ID,
   );
 
   const thread = await channel.threads.create({
