@@ -54,6 +54,23 @@ for (const file of fs.readdirSync(commandsPath).filter((f) => f.endsWith(".js"))
 
 discord.once("ready", () => {
   console.log(`Discord bot online as ${discord.user.tag}`);
+
+  // Ticks every 15 min but only checks every checkEveryHours, so a changed
+  // interval takes effect without a restart. Cost Explorer bills per request.
+  const { DEFAULT_USAGE, runUsageCheck } = require("./usage");
+  let lastRun = 0;
+  const tick = async () => {
+    try {
+      const { checkEveryHours } = { ...DEFAULT_USAGE, ...(await require("./db").getSetting("usage")) };
+      if (Date.now() - lastRun < checkEveryHours * 3600e3) return;
+      lastRun = Date.now();
+      await runUsageCheck(discord);
+    } catch (err) {
+      console.error("Usage check failed:", err);
+    }
+  };
+  tick();
+  setInterval(tick, 15 * 60e3);
 });
 
 discord.on("interactionCreate", async (interaction) => {

@@ -37,6 +37,19 @@ Syncs GitHub org issues with Discord threads, two-way:
 | `events/messageCreate.js` | Relays thread replies to GitHub as comments |
 | `routes/githubWebhook.js` | Verifies + handles incoming GitHub webhook events |
 
+## Usage alerts IAM policy
+
+The AWS keys need only read access to billing data:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Effect": "Allow", "Action": ["ce:GetCostAndUsage", "freetier:GetAccountPlanState"], "Resource": "*" }
+  ]
+}
+```
+
 ## Notes / things to harden before production
 
 - The comment-relay currently skips attachment-only messages; extend `events/messageCreate.js` if you want image links included.

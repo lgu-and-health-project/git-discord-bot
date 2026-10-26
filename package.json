@@ -9,6 +9,8 @@
     "test": "node --test"
   },
   "dependencies": {
+    "@aws-sdk/client-cost-explorer": "^3.1156.0",
+    "@aws-sdk/client-freetier": "^3.1156.0",
     "@octokit/rest": "^20.1.1",
     "discord.js": "^14.15.3",
     "dotenv": "^16.4.5",
