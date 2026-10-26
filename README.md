@@ -9,6 +9,8 @@ Syncs GitHub org issues with Discord threads, two-way:
 - **`/issue close`** → closes the issue, from inside its thread or by naming `repo` + `number`.
 - **`/issue view`** → shows an issue's status/description without leaving Discord.
 - **`/repos`** → lists every repo in the org, so people aren't guessing which one to file into.
+- **`/alerts`** (Manage Server) → routes workflow failures, chosen successes, releases and Brevo/AWS usage warnings to channels.
+- **`/status`** → Brevo credits and this month's AWS Rekognition cost.
 - **`/link` / `/unlink`** → binds a Discord account to a GitHub username so replies/created issues show up as that person on GitHub.
 
 ## Setup
@@ -34,6 +36,8 @@ Syncs GitHub org issues with Discord threads, two-way:
 | `db.js` | Postgres (Neon): Discord↔GitHub account links, thread↔issue mapping |
 | `github.js` | All GitHub API calls (Octokit) |
 | `commands/*.js` | One file per slash command |
+| `alerts.js` | Decides which workflow/release events become alerts (pure, tested) |
+| `usage.js` | Brevo + AWS Rekognition usage checks and de-duplicated alerts |
 | `events/messageCreate.js` | Relays thread replies to GitHub as comments |
 | `routes/githubWebhook.js` | Verifies + handles incoming GitHub webhook events |
 

@@ -43,6 +43,15 @@ module.exports = {
             "Shows an issue's title, status, and description without leaving Discord.",
         },
         {
+          name: "🚨 /alerts route|toggle|workflows|usage|list",
+          value:
+            "Admins (Manage Server): choose where workflow failures, releases and Brevo/AWS usage alerts are posted.",
+        },
+        {
+          name: "📊 /status",
+          value: "Shows Brevo credits and this month's AWS Rekognition cost.",
+        },
+        {
           name: "💬 Replying in an issue thread",
           value:
             "Any message you send inside a thread that's linked to an issue is automatically posted as a comment on that GitHub issue — no command needed.",
